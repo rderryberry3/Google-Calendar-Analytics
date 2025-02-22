@@ -8,7 +8,7 @@ interface AuthProps {
 
 const Auth = ({ onAuthSuccess }: AuthProps) => {
   const login = useGoogleLogin({
-    scope: 'https://www.googleapis.com/auth/calendar.readonly',
+    scope: 'https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/calendar.events.readonly',
     onSuccess: (response) => {
       // Store the access token
       localStorage.setItem('googleAccessToken', response.access_token);

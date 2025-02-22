@@ -30,7 +30,7 @@ interface CalendarData {
 }
 
 const CalendarAnalytics = () => {
-  const [selectedMonth, setSelectedMonth] = useState(new Date());
+  const [selectedMonth, setSelectedMonth] = useState(new Date(2024, 0, 1));
   const [loading, setLoading] = useState(false);
   const [calendarData, setCalendarData] = useState<CalendarData[]>([]);
 
@@ -60,45 +60,58 @@ const CalendarAnalytics = () => {
       // Fetch events for each calendar
       const calendarsData = await Promise.all(
         calendarResponse.data.items.map(async (calendar: any) => {
-          console.log('Fetching events for calendar:', calendar.summary);
-          const eventsResponse = await axios.get(
-            `https://www.googleapis.com/calendar/v3/calendars/${calendar.id}/events`,
-            {
-              headers: {
-                Authorization: `Bearer ${accessToken}`,
-              },
-              params: {
-                timeMin: startDate.toISOString(),
-                timeMax: endDate.toISOString(),
-                singleEvents: true,
-              },
-            }
-          );
-          console.log('Events found for', calendar.summary + ':', eventsResponse.data.items.length);
+          try {
+            console.log('Fetching events for calendar:', calendar.summary);
+            const eventsResponse = await axios.get(
+              `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendar.id)}/events`,
+              {
+                headers: {
+                  Authorization: `Bearer ${accessToken}`,
+                },
+                params: {
+                  timeMin: startDate.toISOString(),
+                  timeMax: endDate.toISOString(),
+                  singleEvents: true,
+                  maxResults: 2500, // Add maximum results parameter
+                },
+              }
+            );
+            console.log('Events found for', calendar.summary + ':', eventsResponse.data.items.length);
 
-          // Calculate total time spent
-          const timeSpent = eventsResponse.data.items.reduce((total: number, event: any) => {
-            if (event.start?.dateTime && event.end?.dateTime) {
-              const start = new Date(event.start.dateTime);
-              const end = new Date(event.end.dateTime);
-              return total + (end.getTime() - start.getTime()) / (1000 * 60 * 60); // Convert to hours
-            }
-            return total;
-          }, 0);
+            // Calculate total time spent
+            const timeSpent = eventsResponse.data.items.reduce((total: number, event: any) => {
+              if (event.start?.dateTime && event.end?.dateTime) {
+                const start = new Date(event.start.dateTime);
+                const end = new Date(event.end.dateTime);
+                return total + (end.getTime() - start.getTime()) / (1000 * 60 * 60); // Convert to hours
+              }
+              return total;
+            }, 0);
 
-          return {
-            id: calendar.id,
-            summary: calendar.summary,
-            timeSpent,
-          };
+            return {
+              id: calendar.id,
+              summary: calendar.summary,
+              timeSpent,
+            };
+          } catch (error: any) {
+            console.error(`Error fetching events for calendar ${calendar.summary}:`, error.response?.data || error.message);
+            // Return calendar with 0 time spent if there's an error
+            return {
+              id: calendar.id,
+              summary: calendar.summary,
+              timeSpent: 0,
+            };
+          }
         })
       );
 
       const filteredData = calendarsData.filter(cal => cal.timeSpent > 0);
       console.log('Calendars with events:', filteredData.length);
       setCalendarData(filteredData);
-    } catch (error) {
-      console.error('Error fetching calendar data:', error);
+    } catch (error: any) {
+      console.error('Error fetching calendar data:', error.response?.data || error.message);
+      // Show user-friendly error message
+      setCalendarData([]);
     } finally {
       setLoading(false);
     }
@@ -129,15 +142,17 @@ const CalendarAnalytics = () => {
     ...Array.from({ length: 12 }, (_, i) => {
       const date = new Date(2024, i, 1);
       return {
-        value: format(date, 'yyyy-MM-dd\'T\'HH:mm:ss.SSS\'Z\''),
+        value: date.toISOString(),
         label: format(date, 'MMMM yyyy'),
+        date: date
       };
     }),
     ...Array.from({ length: 12 }, (_, i) => {
       const date = new Date(2025, i, 1);
       return {
-        value: format(date, 'yyyy-MM-dd\'T\'HH:mm:ss.SSS\'Z\''),
+        value: date.toISOString(),
         label: format(date, 'MMMM yyyy'),
+        date: date
       };
     }),
   ];
@@ -151,7 +166,7 @@ const CalendarAnalytics = () => {
       <FormControl fullWidth sx={{ mb: 4 }}>
         <InputLabel>Select Month</InputLabel>
         <Select
-          value={format(selectedMonth, 'yyyy-MM-dd\'T\'HH:mm:ss.SSS\'Z\'')}
+          value={selectedMonth.toISOString()}
           onChange={(e) => setSelectedMonth(new Date(e.target.value))}
           label="Select Month"
         >
