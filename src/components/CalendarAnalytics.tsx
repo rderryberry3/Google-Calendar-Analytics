@@ -9,6 +9,8 @@ import {
   Select,
   MenuItem,
   CircularProgress,
+  Chip,
+  Stack,
 } from '@mui/material';
 import { Pie } from 'react-chartjs-2';
 import {
@@ -27,6 +29,7 @@ interface CalendarData {
   id: string;
   summary: string;
   timeSpent: number;
+  isVisible?: boolean;
 }
 
 const CalendarAnalytics = () => {
@@ -92,6 +95,7 @@ const CalendarAnalytics = () => {
               id: calendar.id,
               summary: calendar.summary,
               timeSpent,
+              isVisible: true,
             };
           } catch (error: any) {
             console.error(`Error fetching events for calendar ${calendar.summary}:`, error.response?.data || error.message);
@@ -100,6 +104,7 @@ const CalendarAnalytics = () => {
               id: calendar.id,
               summary: calendar.summary,
               timeSpent: 0,
+              isVisible: true,
             };
           }
         })
@@ -117,15 +122,22 @@ const CalendarAnalytics = () => {
     }
   };
 
-  useEffect(() => {
-    fetchCalendarData();
-  }, [selectedMonth]);
+  const toggleCalendarVisibility = (calendarId: string) => {
+    setCalendarData(prevData =>
+      prevData.map(cal =>
+        cal.id === calendarId ? { ...cal, isVisible: !cal.isVisible } : cal
+      )
+    );
+  };
+
+  // Filter visible calendars for the chart
+  const visibleCalendarData = calendarData.filter(cal => cal.isVisible);
 
   const chartData = {
-    labels: calendarData.map(cal => cal.summary),
+    labels: visibleCalendarData.map(cal => cal.summary),
     datasets: [
       {
-        data: calendarData.map(cal => cal.timeSpent),
+        data: visibleCalendarData.map(cal => cal.timeSpent),
         backgroundColor: [
           '#FF6384',
           '#36A2EB',
@@ -156,6 +168,10 @@ const CalendarAnalytics = () => {
       };
     }),
   ];
+
+  useEffect(() => {
+    fetchCalendarData();
+  }, [selectedMonth]);
 
   return (
     <Box sx={{ mt: 4 }}>
@@ -192,11 +208,18 @@ const CalendarAnalytics = () => {
               <Pie data={chartData} options={{ maintainAspectRatio: false }} />
             </Box>
             <Box sx={{ mt: 3 }}>
-              {calendarData.map((cal) => (
-                <Typography key={cal.id}>
-                  {cal.summary}: {cal.timeSpent.toFixed(1)} hours
-                </Typography>
-              ))}
+              <Stack direction="row" spacing={2} sx={{ mb: 2, flexWrap: 'wrap', gap: 1 }}>
+                {calendarData.map((cal) => (
+                  <Chip
+                    key={cal.id}
+                    label={`${cal.summary} (${cal.timeSpent.toFixed(1)}h)`}
+                    onClick={() => toggleCalendarVisibility(cal.id)}
+                    color={cal.isVisible ? "primary" : "default"}
+                    variant={cal.isVisible ? "filled" : "outlined"}
+                    sx={{ m: 0.5 }}
+                  />
+                ))}
+              </Stack>
             </Box>
           </>
         ) : (
